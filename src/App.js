@@ -5,9 +5,11 @@ import { auth, provider } from "./firebase";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { MapContainer, Marker, Polyline, Popup, useMap, Pane } from "react-leaflet";
 import L from "leaflet";
-
+import { PATH_NODES } from "./pathNodes";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
+import { findNearestNode } from "./findNearestNode";
+import { dijkstra } from "./dijkstra";
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -169,6 +171,8 @@ export default function App() {
   const [activeRoute, setActiveRoute] = useState(null);
 
   const mapRef = useRef(null);
+  const [routeCoords, setRouteCoords] = useState([]);
+const [routeDistance, setRouteDistance] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -211,17 +215,33 @@ export default function App() {
     setRouteFrom("");
     setRouteTo("");
   };
+const handleGoRoute = () => {
+  const fromLoc = LOCATIONS.find(
+    l => l.id === Number(routeFrom)
+  );
 
-  const handleGoRoute = () => {
-    const fromLoc = LOCATIONS.find(l => l.id === Number(routeFrom));
-    const toLoc   = LOCATIONS.find(l => l.id === Number(routeTo));
-    if (!fromLoc || !toLoc) return;
-    setActiveRoute({ from: fromLoc, to: toLoc });
-    setNavigating(true);
-    if (mapRef.current) {
-      mapRef.current.fitBounds([fromLoc.pos, toLoc.pos], { padding: [80, 80], animate: true });
-    }
-  };
+  const toLoc = LOCATIONS.find(
+    l => l.id === Number(routeTo)
+  );
+
+  if (!fromLoc || !toLoc) return;
+
+  const startNode = findNearestNode(fromLoc.pos);
+  const endNode = findNearestNode(toLoc.pos);
+
+  const path = dijkstra(startNode, endNode);
+
+  const coords = path.map(
+    index => PATH_NODES[index]
+  );
+
+  setRouteCoords(coords);
+
+  setActiveRoute({
+    from: fromLoc,
+    to: toLoc
+  });
+};
 
   const filteredLocations = LOCATIONS.filter((l) => {
     const matchType = filterType === "all" || l.type === filterType;
@@ -393,7 +413,7 @@ export default function App() {
             {activeRoute && (
               <>
                 <Polyline
-                  positions={[activeRoute.from.pos, activeRoute.to.pos]}
+                 positions={routeCoords}
                   pathOptions={{ color: "#22c55e", weight: 6, dashArray: "12, 8", lineCap: "round" }}
                   pane="routePane"
                 />
