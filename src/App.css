@@ -26,6 +26,37 @@ body {
   width: 400px;
 }
 
+/* ========================================= */
+/* HIDE GOOGLE MAPS WATERMARK & ERRORS       */
+/* ========================================= */
+.gm-style-cc {
+  display: none !important;
+}
+
+.gmnoprint {
+  display: none !important;
+}
+
+.gm-err-container {
+  display: none !important;
+}
+
+.gm-style>div:nth-child(2) {
+  display: none !important;
+}
+
+div[style*="z-index: 1000001"] {
+  display: none !important;
+}
+
+div[style*="z-index: 1000000"] {
+  display: none !important;
+}
+
+a[href^="https://maps.google.com/maps"] {
+  display: none !important;
+}
+
 .login-logo {
   font-size: 60px;
   margin-bottom: 10px;
@@ -285,4 +316,10 @@ body {
   width: 100%;
   flex: 1;
   display: block;
+}
+
+/* College Layout Image Rotation (Calibration) */
+.rotated-map-overlay {
+  rotate: 6deg; /* Adjust this angle to align the image perfectly */
+  transform-origin: center center;
 }

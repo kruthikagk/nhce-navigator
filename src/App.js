@@ -1,38 +1,55 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
+import "leaflet/dist/leaflet.css";
 import { auth, provider } from "./firebase";
-import { signInWithPopup, signOut } from "firebase/auth";
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { MapContainer, Marker, Polyline, Popup, useMap, Pane } from "react-leaflet";
+import L from "leaflet";
+
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const LOCATIONS = [
-  { id: 1,  name: "Main Gate",             type: "gate",    desc: "Main entrance of NHCE",                   pos: [12.9318, 77.6908] },
-  { id: 2,  name: "Library",               type: "library", desc: "Library – 24/7",                          pos: [12.933571979295008, 77.69245395658271] },
-  { id: 3,  name: "MUNCH Canteen",               type: "canteen", desc: " –  Lunch & Snacks", pos: [12.9343953, 77.6925750] },
-  { id: 4,  name: "Block A (CSE/ISE)",     type: "block",   desc: "CS & IS Department Block",                pos: [12.9341048, 77.6921029] },
-  { id: 5,  name: "Block B (ECE/EEE)",     type: "block",   desc: "Electronics Department Block",            pos: [12.9344286, 77.6931785] },
-  { id: 6,  name: "Block C (MECH/CIVIL)",  type: "block",   desc: "Mechanical & Civil Block",                pos: [12.9344286, 77.6931785] },
-  { id: 7,  name: "Auditorium",            type: "event 1st  floor ",   desc: "Main Auditorium – Events & Seminars",     pos: [12.9343845, 77.6922608] },
-  { id: 8,  name: "Admin Block",           type: "admin",   desc: "Principal & Admin Office",                pos: [12.9340, 77.6912] },
-  { id: 9,  name: "NHCE Basketball Court", type: "sports",  desc: "Basketball & Sports Ground",              pos: [12.933560215566194, 77.69233526883649] },
-  { id: 10, name: "girls Hostel",               type: "hostel",  desc: "Girls Hostel",                     pos: [12.9347959, 77.6932378] },
-  { id: 11, name: "boys Hostel",               type: "svn hostel",  desc: "boys Hostel",                     pos: [12.9333153, 77.6920972] },
-   { id: 12,  name: "xerox",             type: "printouts",    desc: "front of munch canteen",                   pos: [12.9343845, 77.6922608] },
+  { id: 1, name: "Main Gate", type: "gate", desc: "Main entrance of NHCE", pos: [12.933408, 77.691239] },
+  { id: 2, name: "Library", type: "library", desc: "Library – 24/7", pos: [12.933571979295008, 77.69245395658271] },
+  { id: 3, name: "MUNCH Canteen", type: "canteen", desc: "Lunch & Snacks", pos: [12.934443, 77.692755] },
+  { id: 4, name: "Block A (CSE/ISE)", type: "block", desc: "CS & IS Department Block", pos: [12.9341048, 77.6921029] },
+  { id: 5, name: "Block B (ECE/EEE)", type: "block", desc: "Electronics Department Block", pos: [12.9344286, 77.6931785] },
+  { id: 6, name: "Block C (MECH)", type: "block", desc: "Mechanical ", pos: [12.9344286, 77.6931785] },
+  { id: 7, name: "Auditorium", type: "event", desc: "Main Auditorium – Events & Seminars", pos: [12.9343845, 77.6922608] },
+  { id: 8, name: "Admin Block", type: "block", desc: "Principal & Admin Office", pos: [12.933660, 77.691799] },
+  { id: 9, name: "Basketball Court", type: "sports", desc: "Basketball & Sports Ground", pos: [12.933560215566194, 77.69233526883649] },
+  { id: 10, name: "Girls Hostel", type: "hostel", desc: "Girls Hostel", pos: [12.9347959, 77.6932378] },
+  { id: 11, name: "Boys Hostel", type: "hostel", desc: "Boys Hostel", pos: [12.9333153, 77.6920972] },
+  { id: 12, name: "Xerox / Printouts", type: "printouts", desc: "Front of MUNCH Canteen", pos: [12.9343845, 77.6922608] },
 ];
 
 const TEACHERS = [
-  { id: 1, name: "MS.Shefali",  dept: "DS",   room: "Block C – Room 223",pos:[12.9336313, 77.6920073] },
-  { id: 2, name: " MR.joshua",  dept: "DS",   room: "Block C – Room 223",pos:[12.9336313, 77.6920073] },
-  { id: 3,name: "MR.Chandan ",  dept: "DS",   room: "Block C – Room 223",pos:[12.9336313, 77.6920073] },
-  { id: 4, name: "MS.Saranya",   dept: "CSE",   room: "Block A – Room 101",pos:[12.9341048, 77.6921029]  },
-  { id: 5, name: "DR.Roja ramani",     dept: "CSE",  room: "Block A – Room 101" ,pos:[12.9341048, 77.6921029] },
-  { id: 6, name: "Prof. Deepa V",     dept: "CSE", room: "Block C – Room 101" ,pos:[12.9341048, 77.6921029] },
-  { id: 7, name: "Dr. Nithya L",      dept: "MATHS", room: "Block C– Room 401",pos:[12.9336313, 77.6920073]  },
+  { id: 1, name: "MS.Shefali",     dept: "DS",    room: "Block C – Room 223", pos: [12.9336313, 77.6920073] },
+  { id: 2, name: "MR.Joshua",      dept: "DS",    room: "Block C – Room 223", pos: [12.9336313, 77.6920073] },
+  { id: 3, name: "MR.Chandan",     dept: "DS",    room: "Block C – Room 223", pos: [12.9336313, 77.6920073] },
+  { id: 4, name: "MS.Saranya",     dept: "CSE",   room: "Block A – Room 101", pos: [12.9341048, 77.6921029] },
+  { id: 5, name: "DR.Roja Ramani", dept: "CSE",   room: "Block A – Room 101", pos: [12.9341048, 77.6921029] },
+  { id: 6, name: "Prof. Deepa V",  dept: "CSE",   room: "Block C – Room 101", pos: [12.9341048, 77.6921029] },
+  { id: 7, name: "Dr. Nithya L",   dept: "MATHS", room: "Block C – Room 401", pos: [12.9336313, 77.6920073] },
 ];
 
 const EVENTS = [
-  { id: 1, title: "Tech Symposium 2025",     time: "Today, 10AM",   location: "Auditorium",            live: true  },
-  { id: 2, title: "Placement Drive – TCS",   time: "Today, 2PM",    location: "Seminar Hall, Block A", live: true  },
-  { id: 3, title: "Cultural Fest – Horizon", time: "Tomorrow, 9AM", location: "Sports Ground",         live: false },
-  { id: 4, title: "IEEE Workshop",           time: "May 18, 11AM",  location: "Block B – Room 301",    live: false },
+  { id: 1, title: "Marathon",               time: "Tomorrow, 6AM", location: "COLLEGE",               live: false },
+  { id: 2, title: "Placement Drive – TCS",  time: "Today, 2PM",    location: "Seminar Hall, Block A",  live: true  },
+  { id: 3, title: "Cultural Fest – Horizon",time: "Tomorrow, 9AM", location: "Sports Ground",          live: false },
+  { id: 4, title: "IEEE Workshop",          time: "May 18, 11AM",  location: "Block B – Room 301",     live: false },
 ];
 
 const TYPE_ICONS = {
@@ -40,126 +57,174 @@ const TYPE_ICONS = {
   block: "🏫", event: "🎭", sports: "⚽", admin: "🏛️", hostel: "🏠",
 };
 
-const NHCE_POS = [12.9318, 77.6908];
+const NHCE_POS = [12.9334947, 77.6911819];
 
-// ─── Google Maps Embed URL builders ───────────────────────────────────────────
-// NOTE: The Embed API v1 requires a valid API key with Maps Embed API enabled.
-// Replace YOUR_GOOGLE_MAPS_API_KEY below with your real key.
-// If you don't have one, the fallback (no-key) iframe URL is used instead.
-const API_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
+// ── Smooth zoom control (wheel delta divided down) ───────────────────────────
+function SmoothZoom() {
+  const map = useMap();
+  useEffect(() => {
+    // Disable default scroll zoom, replace with smooth version
+    map.scrollWheelZoom.disable();
+    let accDelta = 0;
+    let timer = null;
 
-function buildDirectionsSrc(originCoords, destPos) {
-  if (API_KEY && API_KEY !== "YOUR_GOOGLE_MAPS_API_KEY") {
-    return (
-      `https://www.google.com/maps/embed/v1/directions` +
-      `?key=${API_KEY}` +
-      `&origin=${originCoords.lat},${originCoords.lng}` +
-      `&destination=${destPos[0]},${destPos[1]}` +
-      `&mode=walking`
-    );
-  }
-  // Fallback: open directions in embed without key (limited but works for display)
+    const onWheel = (e) => {
+      e.preventDefault();
+      accDelta += e.deltaY;
+
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Each ~300px of scroll = 1 zoom level
+        const steps = accDelta / 300;
+        const currentZoom = map.getZoom();
+        const targetZoom = Math.min(20, Math.max(17, currentZoom - steps));
+        map.setZoom(targetZoom, { animate: true });
+        accDelta = 0;
+      }, 60);
+    };
+
+    const container = map.getContainer();
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, [map]);
+  return null;
+}
+
+// ── SVG-based rotated image overlay ─────────────────────────────────────────
+function RotatedImageOverlay({ url, bounds, opacity = 0.9, rotationDeg = 15 }) {
+  const map = useMap();
+  useEffect(() => {
+    const sw = L.latLng(bounds[0][0], bounds[0][1]);
+    const ne = L.latLng(bounds[1][0], bounds[1][1]);
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("xmlns", svgNS);
+    svg.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    const image = document.createElementNS(svgNS, "image");
+    image.setAttributeNS("http://www.w3.org/1999/xlink", "href", url);
+    image.setAttribute("x", "0");
+    image.setAttribute("y", "0");
+    image.setAttribute("width", "100");
+    image.setAttribute("height", "100");
+    image.setAttribute("preserveAspectRatio", "none");
+    image.setAttribute("opacity", String(opacity));
+    image.setAttribute("transform", `translate(-4, 0) rotate(${rotationDeg}, 54, 50)`);
+    svg.appendChild(image);
+    const svgOverlay = L.svgOverlay(svg, [sw, ne], { interactive: false, pane: "imagePane" });
+    svgOverlay.addTo(map);
+    return () => { map.removeLayer(svgOverlay); };
+  }, [map, url, bounds, opacity, rotationDeg]);
+  return null;
+}
+
+// ── Route panel ──────────────────────────────────────────────────────────────
+function RoutePanel({ from, to, onFromChange, onToChange, onGo, onClear }) {
   return (
-    `https://www.google.com/maps?saddr=${originCoords.lat},${originCoords.lng}` +
-    `&daddr=${destPos[0]},${destPos[1]}&output=embed`
+    <div style={{
+      position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+      zIndex: 1000, background: "#13151c", borderRadius: 14, padding: "12px 16px",
+      display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+      border: "1px solid #252836", minWidth: 340,
+    }}>
+      <span style={{ fontSize: 18 }}>🟢</span>
+      <select value={from} onChange={e => onFromChange(e.target.value)}
+        style={{ flex: 1, background: "#1f2937", color: from ? "white" : "#6b7280", border: "none", borderRadius: 8, padding: "8px 10px", fontSize: 13, cursor: "pointer" }}>
+        <option value="">From…</option>
+        {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+      </select>
+      <span style={{ color: "#4b5563", fontSize: 18 }}>→</span>
+      <span style={{ fontSize: 18 }}>🔴</span>
+      <select value={to} onChange={e => onToChange(e.target.value)}
+        style={{ flex: 1, background: "#1f2937", color: to ? "white" : "#6b7280", border: "none", borderRadius: 8, padding: "8px 10px", fontSize: 13, cursor: "pointer" }}>
+        <option value="">To…</option>
+        {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+      </select>
+      <button onClick={onGo} disabled={!from || !to}
+        style={{ background: from && to ? "#2563eb" : "#374151", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", cursor: from && to ? "pointer" : "default", fontWeight: "bold", fontSize: 13 }}>
+        Go
+      </button>
+      {(from || to) && (
+        <button onClick={onClear}
+          style={{ background: "#374151", color: "#9ca3af", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontSize: 13 }}>
+          ✕
+        </button>
+      )}
+    </div>
   );
 }
 
-function buildPlaceSrc(destPos) {
-  if (API_KEY && API_KEY !== "YOUR_GOOGLE_MAPS_API_KEY") {
-    return (
-      `https://www.google.com/maps/embed/v1/place` +
-      `?key=${API_KEY}` +
-      `&q=${destPos[0]},${destPos[1]}`
-    );
-  }
-  return `https://www.google.com/maps?q=${destPos[0]},${destPos[1]}&output=embed`;
-}
-
-const DEFAULT_MAP_SRC =
-  "https://www.google.com/maps?q=New+Horizon+College+of+Engineering+Bangalore&output=embed";
-
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function App() {
-  const [user,             setUser]             = useState(null);
-  const [search,           setSearch]           = useState("");
-  const [activeTab,        setActiveTab]        = useState("places");
-  const [filterType,       setFilterType]       = useState("all");
+  const [user, setUser] = useState(null);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("places");
+  const [filterType, setFilterType] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [userCoords,       setUserCoords]       = useState(null);
-  const [navigating,       setNavigating]       = useState(false);
-  const [mapSrc,           setMapSrc]           = useState(DEFAULT_MAP_SRC);
+  const [userCoords, setUserCoords] = useState(null);
+  const [navigating, setNavigating] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [routeFrom, setRouteFrom] = useState("");
+  const [routeTo, setRouteTo]     = useState("");
+  const [activeRoute, setActiveRoute] = useState(null);
 
-  // Ask for location once on mount
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthChecking(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      ()    => console.warn("Location permission denied")
+      (pos) => setUserCoords([pos.coords.latitude, pos.coords.longitude]),
+      () => console.warn("Location permission denied")
     );
   }, []);
 
-  const handleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      setUser(result.user);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const handleLogin  = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
+  const handleLogout = async () => { await signOut(auth); };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    setUser(null);
-  };
-
-  // Navigate to any location: show directions inside the map iframe
   const navigateTo = (loc) => {
     setSelectedLocation(loc);
     setNavigating(true);
-
-    const showRoute = (coords) => {
-      setMapSrc(buildDirectionsSrc(coords, loc.pos));
-    };
-
-    const showPlace = () => {
-      setMapSrc(buildPlaceSrc(loc.pos));
-    };
-
-    // Try to get fresh coords; fall back to cached; fall back to just showing place
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const fresh = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserCoords(fresh);
-        showRoute(fresh);
-      },
-      () => {
-        if (userCoords) showRoute(userCoords);
-        else showPlace();
-      }
-    );
+    if (mapRef.current && loc.pos) {
+      const map = mapRef.current;
+      if (!map.getBounds().contains(loc.pos)) map.panTo(loc.pos, { animate: true });
+    }
   };
 
   const handleLocationClick = (loc) => {
-    if (!loc.pos) {
-      alert("Exact coordinates for this location are not yet available.");
-      return;
-    }
+    if (!loc.pos) { alert("Exact coordinates not yet available."); return; }
     navigateTo(loc);
   };
 
-  const handleNavigateToNHCE = () => {
-    navigateTo({ name: "NHCE Main Gate", pos: NHCE_POS });
-  };
+  const handleNavigateToNHCE = () => navigateTo({ name: "NHCE Main Gate", pos: [12.9318, 77.6908] });
 
   const handleResetMap = () => {
     setSelectedLocation(null);
     setNavigating(false);
-    setMapSrc(DEFAULT_MAP_SRC);
+    setActiveRoute(null);
+    setRouteFrom("");
+    setRouteTo("");
+  };
+
+  const handleGoRoute = () => {
+    const fromLoc = LOCATIONS.find(l => l.id === Number(routeFrom));
+    const toLoc   = LOCATIONS.find(l => l.id === Number(routeTo));
+    if (!fromLoc || !toLoc) return;
+    setActiveRoute({ from: fromLoc, to: toLoc });
+    setNavigating(true);
+    if (mapRef.current) {
+      mapRef.current.fitBounds([fromLoc.pos, toLoc.pos], { padding: [80, 80], animate: true });
+    }
   };
 
   const filteredLocations = LOCATIONS.filter((l) => {
-    const matchType   = filterType === "all" || l.type === filterType;
+    const matchType = filterType === "all" || l.type === filterType;
     const matchSearch = l.name.toLowerCase().includes(search.toLowerCase());
     return matchType && matchSearch;
   });
@@ -169,7 +234,8 @@ export default function App() {
     t.dept.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ── Login screen ─────────────────────────────────────────────────────────────
+  if (isAuthChecking) return <div className="login-screen" style={{ color: "white" }}>Loading…</div>;
+
   if (!user) {
     return (
       <div className="login-screen">
@@ -177,24 +243,16 @@ export default function App() {
           <div className="login-logo">🧭</div>
           <h1>NHCE Navigator</h1>
           <p>New Horizon College of Engineering</p>
-          <p className="login-sub">
-            Sign in to explore the campus map, find teachers &amp; live events
-          </p>
-          <button className="google-btn" onClick={handleLogin}>
-            Sign in with Google
-          </button>
+          <p className="login-sub">Sign in to explore the campus map, find teachers &amp; live events</p>
+          <button className="google-btn" onClick={handleLogin}>Sign in with Google</button>
         </div>
       </div>
     );
   }
 
-  // ── Main app ──────────────────────────────────────────────────────────────────
   return (
     <div className="app">
-
-      {/* SIDEBAR */}
       <aside className="sidebar">
-
         <div className="sidebar-header">
           <span className="logo">🧭</span>
           <div>
@@ -203,7 +261,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* User */}
         <div className="user-info">
           <img src={user.photoURL} alt="avatar" className="avatar" />
           <div>
@@ -212,59 +269,34 @@ export default function App() {
           </div>
         </div>
 
-        {/* Search */}
         <div className="search-wrap">
-          <span className="search-icon">🔍</span>
-          <input
-            className="search-input"
-            placeholder="Search places, teachers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <input className="search-input" placeholder="Search places, teachers..."
+            value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
-        {/* Tabs */}
         <div className="tabs">
           {["places", "teachers", "events"].map((t) => (
-            <button
-              key={t}
-              className={`tab-btn ${activeTab === t ? "active" : ""}`}
-              onClick={() => setActiveTab(t)}
-            >
+            <button key={t} className={`tab-btn ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
               {t === "places" ? "📍 Places" : t === "teachers" ? "👨‍🏫 Teachers" : "🎉 Events"}
             </button>
           ))}
         </div>
 
-        {/* ── Places ── */}
         {activeTab === "places" && (
           <>
             <div className="filter-row">
-              {Object.entries(TYPE_ICONS).map(([type, icon]) => (
-                <button
-                  key={type}
-                  className={`filter-chip ${filterType === type ? "active" : ""}`}
-                  onClick={() => setFilterType(type)}
-                >
-                  {icon}
-                </button>
+              {Object.entries(TYPE_ICONS).map(([type, ic]) => (
+                <button key={type} className={`filter-chip ${filterType === type ? "active" : ""}`} onClick={() => setFilterType(type)}>{ic}</button>
               ))}
             </div>
-
             <div className="list">
               {filteredLocations.map((loc) => (
-                <div
-                  key={loc.id}
-                  className={`list-item ${selectedLocation?.id === loc.id ? "selected" : ""}`}
-                  onClick={() => handleLocationClick(loc)}
-                >
+                <div key={loc.id} className={`list-item ${selectedLocation?.id === loc.id ? "selected" : ""}`} onClick={() => handleLocationClick(loc)}>
                   <span className="item-icon">{TYPE_ICONS[loc.type] || "📍"}</span>
                   <div>
                     <div className="item-name">{loc.name}</div>
                     <div className="item-desc">{loc.desc}</div>
-                    {selectedLocation?.id === loc.id && navigating && (
-                      <div className="item-nav-label">🗺️ Route shown on map</div>
-                    )}
+                    {selectedLocation?.id === loc.id && navigating && <div className="item-nav-label">🗺️ Route shown on map</div>}
                   </div>
                 </div>
               ))}
@@ -272,11 +304,10 @@ export default function App() {
           </>
         )}
 
-        {/* ── Teachers ── */}
         {activeTab === "teachers" && (
           <div className="list">
             {filteredTeachers.map((t) => (
-              <div key={t.id} className="list-item">
+              <div key={t.id} className="list-item" onClick={() => t.pos && navigateTo({ ...t, type: "teacher", desc: `${t.dept} - ${t.room}` })} style={{ cursor: t.pos ? "pointer" : "default" }}>
                 <span className="item-icon">👨‍🏫</span>
                 <div>
                   <div className="item-name">{t.name}</div>
@@ -287,17 +318,13 @@ export default function App() {
           </div>
         )}
 
-        {/* ── Events ── */}
         {activeTab === "events" && (
           <div className="list">
             {EVENTS.map((ev) => (
               <div key={ev.id} className="list-item">
                 <span className="item-icon">🎉</span>
                 <div>
-                  <div className="item-name">
-                    {ev.title}
-                    {ev.live && <span className="live-badge">LIVE</span>}
-                  </div>
+                  <div className="item-name">{ev.title}{ev.live && <span className="live-badge">LIVE</span>}</div>
                   <div className="item-desc">{ev.time}</div>
                   <div className="item-desc">📍 {ev.location}</div>
                 </div>
@@ -306,45 +333,108 @@ export default function App() {
           </div>
         )}
 
-        {/* Footer */}
         <div className="sidebar-footer">
-          {navigating && (
-            <button className="reset-btn" onClick={handleResetMap}>
-              🔄 Back to Campus View
-            </button>
+          {(navigating || activeRoute) && (
+            <button className="reset-btn" onClick={handleResetMap}>🔄 Back to Campus View</button>
           )}
-          <button className="locate-btn" onClick={handleNavigateToNHCE}>
-            📍 Navigate to NHCE
-          </button>
-          <button className="logout-btn" onClick={handleLogout}>
-            Sign Out
-          </button>
+          <button className="locate-btn" onClick={handleNavigateToNHCE}>📍 Navigate to NHCE</button>
+          <button className="logout-btn" onClick={handleLogout}>Sign Out</button>
         </div>
-
       </aside>
 
-      {/* MAP PANEL */}
-      <main className="map-panel">
-        {navigating && selectedLocation && (
+      <main className="map-panel" style={{ backgroundColor: "#1a1a2e" }}>
+        {navigating && selectedLocation && !activeRoute && (
           <div className="map-banner">
-            {userCoords
-              ? `🗺️ Directions → ${selectedLocation.name}`
-              : `📍 ${selectedLocation.name} (enable location for turn-by-turn directions)`}
+            {userCoords ? `🗺️ Directions → ${selectedLocation.name}` : `📍 ${selectedLocation.name}`}
           </div>
         )}
-        {/* key={mapSrc} forces iframe to reload whenever the URL changes */}
-        <iframe
-          key={mapSrc}
-          title="NHCE Map"
-          src={mapSrc}
-          className="google-map"
-          style={{ border: 0 }}
-          allowFullScreen=""
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
-      </main>
+        {activeRoute && (
+          <div className="map-banner">
+            🟢 {activeRoute.from.name} &nbsp;→&nbsp; 🔴 {activeRoute.to.name}
+          </div>
+        )}
 
+        <div style={{ width: "100%", height: (navigating || activeRoute) ? "calc(100% - 40px)" : "100%", position: "relative" }}>
+          <MapContainer
+            center={NHCE_POS}
+            zoom={17}
+            minZoom={17}
+            maxZoom={20}
+            maxBounds={[[12.9310, 77.6895], [12.9370, 77.6950]]}
+            maxBoundsViscosity={1.0}
+            style={{ height: "100%", width: "100%", background: "#1a1a2e" }}
+            ref={mapRef}
+            zoomControl={false}
+            attributionControl={false}
+            scrollWheelZoom={false}
+            zoomSnap={0.25}
+            zoomDelta={0.25}
+            wheelPxPerZoomLevel={120}
+          >
+            {/* Smooth scroll zoom */}
+            <SmoothZoom />
+
+            {/* Panes: image below routes */}
+            <Pane name="imagePane" style={{ zIndex: 400 }} />
+            <Pane name="routePane" style={{ zIndex: 450 }} />
+
+            {/* Campus aerial image */}
+            <RotatedImageOverlay
+              url="/college_layout.jpg"
+              bounds={[
+                [12.9326, 77.6907],
+                [12.9359, 77.6939],
+              ]}
+              opacity={1}
+              rotationDeg={15}
+            />
+
+            {/* ── Route: source → destination ── */}
+            {activeRoute && (
+              <>
+                <Polyline
+                  positions={[activeRoute.from.pos, activeRoute.to.pos]}
+                  pathOptions={{ color: "#22c55e", weight: 6, dashArray: "12, 8", lineCap: "round" }}
+                  pane="routePane"
+                />
+                <Marker position={activeRoute.from.pos}>
+                  <Popup>🟢 From: {activeRoute.from.name}</Popup>
+                </Marker>
+                <Marker position={activeRoute.to.pos}>
+                  <Popup>🔴 To: {activeRoute.to.name}</Popup>
+                </Marker>
+              </>
+            )}
+
+            {/* ── Sidebar-click navigation route ── */}
+            {navigating && !activeRoute && selectedLocation && userCoords && (
+              <Polyline
+                positions={[userCoords, selectedLocation.pos]}
+                pathOptions={{ color: "#818cf8", weight: 6, dashArray: "12, 8", lineCap: "round" }}
+                pane="routePane"
+              />
+            )}
+            {navigating && !activeRoute && selectedLocation?.pos && (
+              <Marker position={selectedLocation.pos}><Popup>{selectedLocation.name}</Popup></Marker>
+            )}
+            {navigating && !activeRoute && userCoords && (
+              <Marker position={userCoords}><Popup>You are here</Popup></Marker>
+            )}
+
+            {/* ── All markers when idle ── */}
+            {!navigating && !activeRoute && LOCATIONS.map((loc) => (
+              <Marker key={loc.id} position={loc.pos}><Popup>{loc.name}</Popup></Marker>
+            ))}
+
+            {/* Floating route panel */}
+            <RoutePanel
+              from={routeFrom} to={routeTo}
+              onFromChange={setRouteFrom} onToChange={setRouteTo}
+              onGo={handleGoRoute} onClear={handleResetMap}
+            />
+          </MapContainer>
+        </div>
+      </main>
     </div>
   );
 }
