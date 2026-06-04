@@ -28,7 +28,7 @@ const LOCATIONS = [
   { id: 3, name: "MUNCH Canteen", type: "canteen", desc: "Lunch & Snacks", pos: [12.934443, 77.692755] },
   { id: 4, name: "Block A (CSE/ISE)", type: "block", desc: "CS & IS Department Block", pos: [12.9341048, 77.6921029] },
   { id: 5, name: "Block B (ECE/EEE)", type: "block", desc: "Electronics Department Block", pos: [12.9344286, 77.6931785] },
-  { id: 6, name: "Block C (MECH)", type: "block", desc: "Mechanical ", pos: [12.9344286, 77.6931785] },
+  { id: 6, name: "Block C (DS)", type: "block", desc: "Mechanical ", pos: [12.933655413704795, 77.69198229922985] },
   { id: 7, name: "Auditorium", type: "event", desc: "Main Auditorium – Events & Seminars", pos: [12.9343845, 77.6922608] },
   { id: 8, name: "Admin Block", type: "block", desc: "Principal & Admin Office", pos: [12.933660, 77.691799] },
   { id: 9, name: "Basketball Court", type: "sports", desc: "Basketball & Sports Ground", pos: [12.933560215566194, 77.69233526883649] },
